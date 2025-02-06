@@ -63,8 +63,13 @@ def send_message_to_chat(messages, api_key='key1', stream=True):
             "stream": stream,
             "max_tokens": 100000
         }
+
+        print(f"Sending request with payload: {json.dumps(payload, ensure_ascii=False)}")
+        print(f"Using headers: {headers}")
         
         response = requests.post(url, json=payload, headers=headers, stream=stream)
+        print(f"Response status: {response.status_code}")
+        
         if response.status_code != 200:
             error_data = response.json()
             error_message = error_data.get('error', {}).get('message', '未知错误')
@@ -94,29 +99,34 @@ def chat():
         data = request.json
         session_id = data.get('session_id')
         message = data.get('message')
-        api_key = data.get('api_key', 'key1')  # 默认使用 key1
+        api_key = data.get('api_key', 'key1')
         
-        # 确保消息是 raw string
-        message = r"{}".format(message)
+        print(f"\nNew chat request:")
+        print(f"Session ID: {session_id}")
+        print(f"API Key: {api_key}")
         
         # 加载历史对话
         chat_history = load_chat_history()
         
-        # 如果是新会话，创建新的session_id
-        if not session_id:
+        if session_id not in chat_history:
             session_id = str(uuid.uuid4())
             chat_history[session_id] = {
                 'title': message[:20] + '...',
                 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                 'messages': []
             }
-            
+        
         # 添加用户消息
         chat_history[session_id]['messages'].append({
             'role': 'user',
             'content': message
         })
-        save_chat_history(chat_history)  # 立即保存用户消息
+        
+        print(f"Current messages in session:")
+        for msg in chat_history[session_id]['messages']:
+            print(f"- {msg['role']}: {msg['content'][:50]}...")
+        
+        save_chat_history(chat_history)
         
         def generate():
             try:
@@ -125,6 +135,7 @@ def chat():
                     api_key=api_key,
                     stream=True
                 )
+                
                 if response.status_code != 200:
                     yield f"data: {json.dumps({'content': '请求失败: ' + str(response.status_code)})}\n\n"
                     return
@@ -133,25 +144,36 @@ def chat():
                 
                 for line in response.iter_lines():
                     if line:
+                        line_text = line.decode('utf-8')
+                        print(f"Raw response line: {line_text}")
+                        
                         try:
-                            json_response = json.loads(line.decode('utf-8').replace('data: ', ''))
-                            if json_response.get('choices'):
-                                content = json_response['choices'][0]['delta'].get('content', '')
-                                if content:
-                                    assistant_message['content'] += content
-                                    yield f"data: {json.dumps({'content': content})}\n\n"
+                            if line_text.startswith('data: '):
+                                json_response = json.loads(line_text.replace('data: ', ''))
+                                if json_response.get('choices'):
+                                    content = json_response['choices'][0]['delta'].get('content', '')
+                                    if content:
+                                        assistant_message['content'] += content
+                                        yield f"data: {json.dumps({'content': content})}\n\n"
+                        except json.JSONDecodeError as e:
+                            print(f"JSON decode error: {e}")
+                            print(f"Problematic line: {line_text}")
+                            continue
                         except Exception as e:
-                            print(f"Error processing response: {e}")
-                            yield f"data: {json.dumps({'content': '处理响应时出错'})}\n\n"
+                            print(f"Error processing line: {e}")
+                            print(f"Problematic line: {line_text}")
                             continue
                 
-                # 保存助手回复
-                chat_history[session_id]['messages'].append(assistant_message)
-                save_chat_history(chat_history)
+                if assistant_message['content']:
+                    chat_history[session_id]['messages'].append(assistant_message)
+                    save_chat_history(chat_history)
+                    print("Chat history updated with assistant response")
+                else:
+                    print("Warning: Empty assistant response")
                 
             except Exception as e:
                 print(f"Error in generate: {e}")
-                yield f"data: {json.dumps({'content': '生成响应时出错'})}\n\n"
+                yield f"data: {json.dumps({'content': f'生成响应时出错: {str(e)}'})}\n\n"
         
         return Response(stream_with_context(generate()), mimetype='text/event-stream')
         

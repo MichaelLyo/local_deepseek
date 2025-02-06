@@ -15,7 +15,9 @@ deepseek官网实在太太太卡了……
 
 ## 申请API key
 
-可以申请 [潞晨云](https://cloud.luchentech.com/maas/modelMarket) 的API key。
+可以申请 [潞晨云](https://cloud.luchentech.com/account/signup?invitation_code=invite_gkxi7yamJEauvSyEjZH2ZJ) 的API key。
+
+我的邀请码： invite_gkxi7yamJEauvSyEjZH2ZJ
 
 目前还是免费的。
 可以用不同账号申请多个API key，然后切换使用。
@@ -71,4 +73,4 @@ python app.py
 4. 支持 Markdown 和 LaTeX 格式
 
 ## 鸣谢
-感谢[潞晨云](https://cloud.luchentech.com/maas/modelMarket)提供的API。
+感谢[潞晨云](https://cloud.luchentech.com/account/signup?invitation_code=invite_gkxi7yamJEauvSyEjZH2ZJ)提供的API。
