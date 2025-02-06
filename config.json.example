@@ -1,0 +1,12 @@
+{
+    "api_keys": {
+        "key1": {
+            "name": "DeepSeek-1",
+            "key": "your-api-key-1"
+        },
+        "key2": {
+            "name": "DeepSeek-2",
+            "key": "your-api-key-2"
+        }
+    }
+} 

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>AI Chat</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it/dist/markdown-it.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it-mermaid"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it-table-of-contents"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markdown-it-emoji"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <button id="new-chat" class="new-chat-btn">新建对话</button>
+            <div id="history-list" class="history-list"></div>
+        </div>
+        <div class="sidebar-toggle">
+            <svg class="toggle-icon" viewBox="0 0 24 24">
+                <path fill="currentColor" d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+            </svg>
+        </div>
+        <div class="chat-container">
+            <div id="chat-messages" class="chat-messages"></div>
+            <div class="input-container">
+                <select id="api-key-select" class="api-key-select">
+                    <!-- 选项将通过 JavaScript 动态添加 -->
+                </select>
+                <textarea id="user-input" placeholder="输入消息..." rows="1"></textarea>
+                <button id="send-button">发送</button>
+            </div>
+        </div>
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html> 
