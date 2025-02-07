@@ -508,6 +508,7 @@ function createMessageActions(content, messageDiv) {
                 break;
             case 'markdown':
                 messageDiv.classList.add('markdown-content');
+                messageDiv.style.whiteSpace = '';  // 保持原始格式
                 messageDiv.innerHTML = renderMarkdown(content);
                 break;
         }

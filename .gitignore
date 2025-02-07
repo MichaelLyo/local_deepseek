@@ -20,6 +20,9 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+*.log
+*.out
+*.nohup
 
 # Virtual Environment
 venv/

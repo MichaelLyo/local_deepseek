@@ -64,6 +64,10 @@ pip install flask requests
 ```bash
 python app.py
 ```
+或者后台运行
+```bash
+nohup /opt/miniconda3/bin/python -u app.py > output.log 2>&1 &
+```
 
 ## 使用说明
 
