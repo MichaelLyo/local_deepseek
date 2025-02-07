@@ -24,6 +24,10 @@ function loadHistory() {
             const historyList = document.getElementById('history-list');
             historyList.innerHTML = '';
             
+            // 找到最新的会话
+            let latestSession = null;
+            let latestTimestamp = 0;
+            
             // 按日期分组
             const groups = {};
             Object.entries(history).forEach(([sessionId, session]) => {
@@ -32,6 +36,13 @@ function loadHistory() {
                     groups[date] = [];
                 }
                 groups[date].push([sessionId, session]);
+                
+                // 更新最新会话
+                const timestamp = new Date(session.timestamp).getTime();
+                if (timestamp > latestTimestamp) {
+                    latestTimestamp = timestamp;
+                    latestSession = sessionId;
+                }
             });
             
             // 按日期排序并显示
@@ -96,12 +107,18 @@ function loadHistory() {
                             historyList.appendChild(historyItem);
                         });
                 });
+            
+            // 如果有会话且当前没有选中的会话，自动加载最新的会话
+            if (latestSession && !currentSessionId) {
+                loadSession(latestSession);
+            }
         });
 }
 
 // 加载特定会话
 function loadSession(sessionId) {
     currentSessionId = sessionId;
+    updateHeaderButtons();
     fetch(`/api/session/${sessionId}`)
         .then(response => response.json())
         .then(session => {
@@ -398,16 +415,34 @@ function renderLatex(text) {
                 .replace(/\\subparagraph{(.*?)}/g, '<h5>$1</h5>');
 
             // 处理数学公式
-            const segments = content.split(/(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$|\\begin{equation}[\s\S]*?\\end{equation})/g);
+            const segments = content.split(/(\$\$[\s\S]*?\$\$|\$[\s\S]*?\$|\\begin{equation}[\s\S]*?\\end{equation}|\\begin{align\*}[\s\S]*?\\end{align\*}|\\begin{align}[\s\S]*?\\end{align})/g);
             
             segments.forEach(segment => {
-                if (segment.startsWith('$$') || segment.startsWith('\\begin{equation}')) {
+                if (segment.startsWith('$$') || 
+                    segment.startsWith('\\begin{equation}') || 
+                    segment.startsWith('\\begin{align') // 匹配 align 和 align*
+                ) {
                     const mathDiv = document.createElement('div');
                     try {
+                        // 预处理 align 环境中的内容
+                        let formula = segment;
+                        if (segment.includes('\\begin{align')) {
+                            // 移除对齐符号 &
+                            formula = formula.replace(/&/g, '');
+                            // 将 \\ 替换为单个换行符
+                            formula = formula.replace(/\\\\/g, '\\quad');
+                        }
+                        
+                        // 移除环境标记
+                        formula = formula.replace(/^\$\$|\$\$$|\\begin{equation}|\\end{equation}|\\begin{align\*}|\\end{align\*}|\\begin{align}|\\end{align}/g, '');
+                        
                         katex.render(
-                            segment.replace(/^\$\$|\$\$$|\\begin{equation}|\\end{equation}/g, ''),
+                            formula.trim(),
                             mathDiv,
-                            { displayMode: true }
+                            { 
+                                displayMode: true,
+                                throwOnError: false
+                            }
                         );
                         p.appendChild(mathDiv);
                     } catch (e) {
@@ -753,6 +788,7 @@ document.getElementById('user-input').onkeypress = function(e) {
 document.getElementById('new-chat').onclick = function() {
     currentSessionId = null;
     document.getElementById('chat-messages').innerHTML = '';
+    updateHeaderButtons();
 };
 
 // 绑定右上角新建对话按钮
@@ -771,6 +807,79 @@ function initSidebarToggle() {
         toggle.classList.toggle('collapsed');
         toggleIcon.classList.toggle('collapsed');
     };
+}
+
+// 撤销最后一组对话
+function undoLastMessage() {
+    if (!currentSessionId) return;
+    
+    fetch('/api/undo', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ session_id: currentSessionId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadSession(currentSessionId);
+        } else {
+            console.error('Undo failed:', data.error);
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+// 同步备份记录
+function syncBackup() {
+    if (!currentSessionId) return;
+    
+    fetch('/api/sync', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ session_id: currentSessionId })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadSession(currentSessionId);
+        } else {
+            console.error('Sync failed:', data.error);
+        }
+    })
+    .catch(error => console.error('Error:', error));
+}
+
+// 添加事件监听器
+document.getElementById('undo-chat-icon').onclick = undoLastMessage;
+document.getElementById('sync-chat-icon').onclick = syncBackup;
+
+// 更新按钮状态
+function updateHeaderButtons() {
+    const undoButton = document.getElementById('undo-chat-icon');
+    const syncButton = document.getElementById('sync-chat-icon');
+    
+    undoButton.disabled = !currentSessionId;
+    syncButton.disabled = !currentSessionId;
+}
+
+// 在加载会话和新建会话时更新按钮状态
+function loadSession(sessionId) {
+    currentSessionId = sessionId;
+    updateHeaderButtons();
+    fetch(`/api/session/${sessionId}`)
+        .then(response => response.json())
+        .then(session => {
+            const chatMessages = document.getElementById('chat-messages');
+            chatMessages.innerHTML = '';
+            
+            session.messages.forEach(message => {
+                appendMessage(message.content, message.role);
+            });
+        });
 }
 
 // 在初始化部分添加

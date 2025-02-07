@@ -37,4 +37,5 @@ ENV/
 # Project specific
 chat_history.json
 config.json
+chat_backup.json
 .env 

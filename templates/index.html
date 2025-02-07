@@ -24,11 +24,23 @@
         </div>
         <div class="chat-container">
             <div class="chat-header">
-                <button id="new-chat-icon" class="new-chat-icon" title="新建会话">
-                    <svg viewBox="0 0 24 24">
-                        <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                    </svg>
-                </button>
+                <div class="header-buttons">
+                    <button id="new-chat-icon" class="header-icon" title="新建会话">
+                        <svg viewBox="0 0 24 24">
+                            <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                        </svg>
+                    </button>
+                    <button id="undo-chat-icon" class="header-icon" title="撤销最后一组对话">
+                        <svg viewBox="0 0 24 24">
+                            <path fill="currentColor" d="M12.5 8c-2.65 0-5.05.99-6.9 2.6L2 7v9h9l-3.62-3.62c1.39-1.16 3.16-1.88 5.12-1.88 3.54 0 6.55 2.31 7.6 5.5l2.37-.78C21.08 11.03 17.15 8 12.5 8z"/>
+                        </svg>
+                    </button>
+                    <button id="sync-chat-icon" class="header-icon" title="同步备份记录">
+                        <svg viewBox="0 0 24 24">
+                            <path fill="currentColor" d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46C19.54 15.03 20 13.57 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74C4.46 8.97 4 10.43 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
             <div id="chat-messages" class="chat-messages"></div>
             <div class="input-container">

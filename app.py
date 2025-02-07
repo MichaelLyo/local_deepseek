@@ -34,6 +34,9 @@ API_KEYS = config['api_keys']
 # 存储对话历史的文件路径
 HISTORY_FILE = 'chat_history.json'
 
+# 存储备份历史的文件路径
+BACKUP_FILE = 'chat_backup.json'
+
 def load_chat_history():
     if os.path.exists(HISTORY_FILE):
         with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
@@ -42,6 +45,16 @@ def load_chat_history():
 
 def save_chat_history(history):
     with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+        json.dump(history, f, ensure_ascii=False, indent=4)
+
+def load_backup_history():
+    if os.path.exists(BACKUP_FILE):
+        with open(BACKUP_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {}
+
+def save_backup_history(history):
+    with open(BACKUP_FILE, 'w', encoding='utf-8') as f:
         json.dump(history, f, ensure_ascii=False, indent=4)
 
 def clean_markdown(text):
@@ -212,6 +225,83 @@ def update_session_title(session_id):
         return jsonify({'success': True})
     except Exception as e:
         print(f"Error updating session title: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/undo', methods=['POST'])
+def undo_last_message():
+    try:
+        data = request.json
+        session_id = data.get('session_id')
+        
+        if not session_id:
+            return jsonify({'error': 'Session ID is required'}), 400
+            
+        chat_history = load_chat_history()
+        backup_history = load_backup_history()
+        
+        if session_id not in chat_history:
+            return jsonify({'error': 'Session not found'}), 404
+            
+        # 确保至少有一组对话可以撤销
+        if len(chat_history[session_id]['messages']) < 2:
+            return jsonify({'error': 'No messages to undo'}), 400
+            
+        # 移除最后一组对话（用户消息和助手回复）
+        user_message = chat_history[session_id]['messages'].pop()
+        assistant_message = chat_history[session_id]['messages'].pop()
+        
+        # 保存到备份文件
+        if session_id not in backup_history:
+            backup_history[session_id] = {
+                'title': chat_history[session_id]['title'],
+                'timestamp': chat_history[session_id]['timestamp'],
+                'messages': []
+            }
+        
+        backup_history[session_id]['messages'].extend([assistant_message, user_message])
+        
+        save_chat_history(chat_history)
+        save_backup_history(backup_history)
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        print(f"Error in undo: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/sync', methods=['POST'])
+def sync_backup():
+    try:
+        data = request.json
+        session_id = data.get('session_id')
+        
+        if not session_id:
+            return jsonify({'error': 'Session ID is required'}), 400
+            
+        chat_history = load_chat_history()
+        backup_history = load_backup_history()
+        
+        if session_id not in backup_history or not backup_history[session_id]['messages']:
+            return jsonify({'error': 'No backup messages found'}), 404
+            
+        # 恢复所有备份的消息
+        if session_id not in chat_history:
+            chat_history[session_id] = {
+                'title': backup_history[session_id]['title'],
+                'timestamp': backup_history[session_id]['timestamp'],
+                'messages': []
+            }
+            
+        chat_history[session_id]['messages'].extend(backup_history[session_id]['messages'])
+        backup_history[session_id]['messages'] = []  # 清空备份
+        
+        save_chat_history(chat_history)
+        save_backup_history(backup_history)
+        
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        print(f"Error in sync: {e}")
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
