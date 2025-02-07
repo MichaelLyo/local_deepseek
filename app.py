@@ -61,7 +61,7 @@ def send_message_to_chat(messages, api_key='key1', stream=True):
             "model": "deepseek_r1",
             "messages": messages,
             "stream": stream,
-            "max_tokens": 100000
+            "max_tokens": 900000
         }
 
         print(f"Sending request with payload: {json.dumps(payload, ensure_ascii=False)}")

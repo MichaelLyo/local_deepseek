@@ -111,52 +111,151 @@ function renderMarkdown(text) {
     return md.render(processedText);
 }
 
+function splitText(text) {
+    const itemizeRegex = /\\begin{itemize}[\s\S]*?\\end{itemize}/g;
+    const result = [];
+    let lastIndex = 0;
+    let match;
+  
+    // 处理所有itemize块
+    while ((match = itemizeRegex.exec(text)) !== null) {
+      // 处理itemize块之前的普通文本
+      const before = text.slice(lastIndex, match.index);
+      if (before) {
+        before.split(/\n{2,}/)                     // 按两个以上换行符分割
+             .map(p => p.trim().replace(/\n+/g, ' ')) // 清理段落格式
+             .filter(p => p)                        // 移除空段落
+             .forEach(p => result.push(p));
+      }
+      
+      // 添加itemize块到结果
+      result.push(match[0].trim());
+      lastIndex = itemizeRegex.lastIndex;
+    }
+  
+    // 处理剩余文本
+    const remaining = text.slice(lastIndex);
+    if (remaining) {
+      remaining.split(/\n{2,}/)                   // 按两个以上换行符分割
+               .map(p => p.trim().replace(/\n+/g, ' ')) // 清理段落格式
+               .filter(p => p)                     // 移除空段落
+               .forEach(p => result.push(p));
+    }
+  
+    return result;
+  }
+  
 // 修改 LaTeX 渲染函数
 function renderLatex(text) {
     const div = document.createElement('div');
     div.className = 'latex-content';
 
     // 将 LaTeX 文本分成段落
-    const paragraphs = text.split(/\n\n+/);
+    // const paragraphs = text.split(/\n\n+/);
+    const paragraphs = splitText(text);
+    console.log(paragraphs);
     
     paragraphs.forEach(paragraph => {
         if (!paragraph.trim()) return;
 
         // 检查段落类型并相应处理
-        if (paragraph.startsWith('\\section{')) {
-            const match = paragraph.match(/\\section{(.*?)}/);
-            if (match) {
-                const h1 = document.createElement('h1');
-                h1.textContent = match[1];
-                div.appendChild(h1);
-            }
-        }
-        else if (paragraph.startsWith('\\subsection{')) {
-            const match = paragraph.match(/\\subsection{(.*?)}/);
-            if (match) {
-                const h2 = document.createElement('h2');
-                h2.textContent = match[1];
-                div.appendChild(h2);
-            }
-        }
-        else if (paragraph.startsWith('\\subsubsection{')) {
-            const match = paragraph.match(/\\subsubsection{(.*?)}/);
-            if (match) {
-                const h3 = document.createElement('h3');
-                h3.textContent = match[1];
-                div.appendChild(h3);
-            }
-        }
-        else if (paragraph.startsWith('\\begin{itemize}')) {
+        
+        // if (paragraph.startsWith('\\begin{itemize}')) {
+        //     const ul = document.createElement('ul');
+        //     const items = paragraph.match(/\\item\s+(.*?)(?=\\item|\\end{itemize})/g);
+        //     if (items) {
+        //         items.forEach(item => {
+        //             const li = document.createElement('li');
+        //             li.textContent = item.replace(/\\item\s+/, '');
+        //             ul.appendChild(li);
+        //         });
+        //     }
+        //     div.appendChild(ul);
+        // }
+       
+        if (paragraph.startsWith('\\begin{itemize}')) {
             const ul = document.createElement('ul');
-            const items = paragraph.match(/\\item\s+(.*?)(?=\\item|\\end{itemize})/g);
-            if (items) {
-                items.forEach(item => {
-                    const li = document.createElement('li');
-                    li.textContent = item.replace(/\\item\s+/, '');
-                    ul.appendChild(li);
-                });
+            
+            // Step1: Robust item extraction with multiline support
+            const items = [];
+            const itemRegex = /\\item([\s\S]*?)(?=\s*\\item|\s*\\end{itemize})/gs;
+            
+            let match;
+            while ((match = itemRegex.exec(paragraph)) !== null) {
+                const rawContent = match[1].replace(/^\s+/, '').replace(/\s+$/, ''); // Trim whitespace
+                items.push(rawContent);
             }
+    
+            // Step2: Process each item content
+            items.forEach(rawText => {
+                const li = document.createElement('li');
+                
+                // Step3: Split text and formulas accurately 
+                const splitRegex = /(\${1,2}(?:\\.|[^$\n])*?\${1,2})/g; // Enhanced regex for formulas
+                const segments = rawText.split(splitRegex).filter(s => s.trim() !== '');
+                console.log(segments);
+                segments.forEach(segment => {
+                    if (segment.startsWith('$$') || segment.startsWith('\\begin{equation}')) {
+                        const mathDiv = document.createElement('div');
+                        try {
+                            katex.render(
+                                segment.replace(/^\$\$|\$\$$|\\begin{equation}|\\end{equation}/g, ''),
+                                mathDiv,
+                                { displayMode: true }
+                            );
+                            li.appendChild(mathDiv);
+                        } catch (e) {
+                            console.error('Error rendering math:', e);
+                            li.appendChild(document.createTextNode(segment));
+                        }
+                    } else if (segment.startsWith('$')) {
+                        const mathSpan = document.createElement('span');
+                        try {
+                            katex.render(
+                                segment.replace(/^\$|\$/g, ''),
+                                mathSpan,
+                                { displayMode: false }
+                            );
+                            li.appendChild(mathSpan);
+                        } catch (e) {
+                            console.error('Error rendering inline math:', e);
+                            li.appendChild(document.createTextNode(segment));
+                        }
+                    } else if (segment.trim()) {
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = segment;
+                        while (tempDiv.firstChild) {
+                            li.appendChild(tempDiv.firstChild);
+                        }
+                    }
+                    // if (segment.startsWith('$') && segment.endsWith('$')) { 
+                    //     // Handle LaTeX math content
+                    //     try {
+                    //         const span = document.createElement('span');
+                    //         katex.render(segment.replace(/\\\\/g, '\\\\'), span, { 
+                    //             throwOnError: false,
+                    //             displayMode: segment.startsWith('$$'),
+                    //             strict: false // Allow some informal syntax
+                    //         });
+                            
+                    //         li.appendChild(span);
+                    //     } catch (e) {
+                    //         li.appendChild(document.createTextNode(`[Math Error: ${e.message}]`));
+                    //     }
+                    // } else { 
+                    //     // Handle plain text with preserved \text{} commands
+                    //     li.appendChild(
+                    //         document.createTextNode(
+                    //             segment.replace(/\\\\/g, '') // Cleanup line breaks
+                    //                    .replace(/\\text\{([^}]+)\}/g, '$1') // Extract \text content
+                    //         )
+                    //     );
+                    // }
+                });
+    
+                ul.appendChild(li);
+            });
+    
             div.appendChild(ul);
         }
         else if (paragraph.startsWith('\\begin{enumerate}')) {
@@ -209,13 +308,44 @@ function renderLatex(text) {
             table.appendChild(tbody);
             div.appendChild(table);
         }
-        else {
+        else{
+            if (paragraph.startsWith('\\section{')) {
+                const match = paragraph.match(/\\section{(.*?)}/);
+                if (match) {
+                    // console.log(paragraph);
+                    const h1 = document.createElement('h1');
+                    h1.textContent = match[1];
+                    div.appendChild(h1);
+                }
+            }
+            else if (paragraph.startsWith('\\subsection{')) {
+                const match = paragraph.match(/\\subsection{(.*?)}/);
+                if (match) {
+                    console.log(paragraph);
+                    const h2 = document.createElement('h2');
+                    h2.textContent = match[1];
+                    div.appendChild(h2);
+                }
+            }
+            else if (paragraph.startsWith('\\subsubsection{')) {
+                const match = paragraph.match(/\\subsubsection{(.*?)}/);
+                if (match) {
+                    console.log(paragraph);
+                    const h3 = document.createElement('h3');
+                    h3.textContent = match[1];
+                    div.appendChild(h3);
+                }
+            }            
             // 处理普通段落，包括内联元素
             const p = document.createElement('p');
             let content = paragraph;
 
             // 处理内联元素
             content = content
+                .replace(/\\subsection{(.*?)}/g, '')
+                .replace(/\\subsubsection{(.*?)}/g, '')
+                .replace(/\\section{(.*?)}/g, '')
+                .replace(/\\label{(.*?)}/g, '')
                 .replace(/\\textbf{(.*?)}/g, '<strong>$1</strong>')
                 .replace(/\\textit{(.*?)}/g, '<em>$1</em>')
                 .replace(/\\emph{(.*?)}/g, '<em>$1</em>')
