@@ -2,6 +2,21 @@ let currentSessionId = null;
 const eventSource = null;
 
 // 加载历史对话
+function formatDate(dateStr) {
+    const date = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    if (date.toDateString() === today.toDateString()) {
+        return '今天';
+    } else if (date.toDateString() === yesterday.toDateString()) {
+        return '昨天';
+    } else {
+        return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+    }
+}
+
 function loadHistory() {
     fetch('/api/history')
         .then(response => response.json())
@@ -9,55 +24,78 @@ function loadHistory() {
             const historyList = document.getElementById('history-list');
             historyList.innerHTML = '';
             
-            Object.entries(history).reverse().forEach(([sessionId, session]) => {
-                const historyItem = document.createElement('div');
-                historyItem.className = 'history-item';
-                
-                const titleSpan = document.createElement('span');
-                titleSpan.className = 'history-title';
-                titleSpan.textContent = session.title;
-                
-                const renameButton = document.createElement('button');
-                renameButton.className = 'rename-button';
-                renameButton.innerHTML = `
-                    <svg class="rename-icon" viewBox="0 0 24 24">
-                        <path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                    </svg>
-                `;
-                
-                renameButton.onclick = (e) => {
-                    e.stopPropagation();
-                    titleSpan.contentEditable = true;
-                    titleSpan.focus();
-                };
-                
-                titleSpan.onblur = () => {
-                    titleSpan.contentEditable = false;
-                    const newTitle = titleSpan.textContent.trim();
-                    if (newTitle && newTitle !== session.title) {
-                        fetch(`/api/session/${sessionId}/title`, {
-                            method: 'PUT',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({ title: newTitle })
-                        });
-                    }
-                };
-                
-                titleSpan.onkeypress = (e) => {
-                    if (e.key === 'Enter') {
-                        e.preventDefault();
-                        titleSpan.blur();
-                    }
-                };
-                
-                historyItem.appendChild(titleSpan);
-                historyItem.appendChild(renameButton);
-                historyItem.onclick = () => loadSession(sessionId);
-                
-                historyList.appendChild(historyItem);
+            // 按日期分组
+            const groups = {};
+            Object.entries(history).forEach(([sessionId, session]) => {
+                const date = session.timestamp.split(' ')[0];
+                if (!groups[date]) {
+                    groups[date] = [];
+                }
+                groups[date].push([sessionId, session]);
             });
+            
+            // 按日期排序并显示
+            Object.entries(groups)
+                .sort((a, b) => new Date(b[0]) - new Date(a[0]))
+                .forEach(([date, sessions]) => {
+                    const dateDiv = document.createElement('div');
+                    dateDiv.className = 'history-date';
+                    dateDiv.textContent = formatDate(date);
+                    historyList.appendChild(dateDiv);
+                    
+                    // 按时间倒序排序会话
+                    sessions
+                        .sort((a, b) => new Date(b[1].timestamp) - new Date(a[1].timestamp))
+                        .forEach(([sessionId, session]) => {
+                            const historyItem = document.createElement('div');
+                            historyItem.className = 'history-item';
+                            
+                            const titleSpan = document.createElement('span');
+                            titleSpan.className = 'history-title';
+                            titleSpan.textContent = session.title;
+                            
+                            const renameButton = document.createElement('button');
+                            renameButton.className = 'rename-button';
+                            renameButton.innerHTML = `
+                                <svg class="rename-icon" viewBox="0 0 24 24">
+                                    <path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                                </svg>
+                            `;
+                            
+                            renameButton.onclick = (e) => {
+                                e.stopPropagation();
+                                titleSpan.contentEditable = true;
+                                titleSpan.focus();
+                            };
+                            
+                            titleSpan.onblur = () => {
+                                titleSpan.contentEditable = false;
+                                const newTitle = titleSpan.textContent.trim();
+                                if (newTitle && newTitle !== session.title) {
+                                    fetch(`/api/session/${sessionId}/title`, {
+                                        method: 'PUT',
+                                        headers: {
+                                            'Content-Type': 'application/json'
+                                        },
+                                        body: JSON.stringify({ title: newTitle })
+                                    });
+                                }
+                            };
+                            
+                            titleSpan.onkeypress = (e) => {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    titleSpan.blur();
+                                }
+                            };
+                            
+                            historyItem.appendChild(titleSpan);
+                            historyItem.appendChild(renameButton);
+                            historyItem.onclick = () => loadSession(sessionId);
+                            
+                            historyList.appendChild(historyItem);
+                        });
+                });
         });
 }
 
@@ -624,7 +662,20 @@ function sendMessage() {
         function readStream() {
             reader.read().then(({done, value}) => {
                 if (done) {
-                    loadHistory();  // 加载更新后的历史记录
+                    // 完成后重新渲染最后一条消息
+                    let assistantDiv = chatMessages.querySelector('.assistant-message:last-child');
+                    if (assistantDiv) {
+                        const format = detectTextFormat(assistantMessage);
+                        switch(format) {
+                            case 'latex':
+                                assistantDiv.innerHTML = renderLatex(assistantMessage);
+                                break;
+                            case 'markdown':
+                                assistantDiv.innerHTML = renderMarkdown(assistantMessage);
+                                break;
+                        }
+                    }
+                    loadHistory();
                     loadApiKeys();
                     return;
                 }
@@ -638,19 +689,28 @@ function sendMessage() {
                             const data = JSON.parse(line.slice(6));
                             assistantMessage += data.content;
                             
-                            // 更新或创建助手消息
                             let assistantDiv = chatMessages.querySelector('.assistant-message:last-child');
                             
                             if (!assistantDiv || assistantDiv.classList.contains('loading-message')) {
                                 assistantDiv = document.createElement('div');
-                                assistantDiv.className = 'message assistant-message';
+                                assistantDiv.className = 'message assistant-message markdown-content';
                                 chatMessages.appendChild(assistantDiv);
                             }
                             
-                            // 保留换行符，将文本转换为HTML
-                            assistantDiv.innerHTML = assistantMessage
-                                .replace(/\n/g, '<br>')
-                                .replace(/ /g, '&nbsp;');
+                            // 实时渲染
+                            const format = detectTextFormat(assistantMessage);
+                            switch(format) {
+                                case 'latex':
+                                    assistantDiv.innerHTML = renderLatex(assistantMessage);
+                                    break;
+                                case 'markdown':
+                                    assistantDiv.innerHTML = renderMarkdown(assistantMessage);
+                                    break;
+                                default:
+                                    assistantDiv.innerHTML = assistantMessage
+                                        .replace(/\n/g, '<br>')
+                                        .replace(/ /g, '&nbsp;');
+                            }
                             chatMessages.scrollTop = chatMessages.scrollHeight;
                         } catch (e) {
                             console.error('Error parsing SSE data:', e);
@@ -693,6 +753,11 @@ document.getElementById('user-input').onkeypress = function(e) {
 document.getElementById('new-chat').onclick = function() {
     currentSessionId = null;
     document.getElementById('chat-messages').innerHTML = '';
+};
+
+// 绑定右上角新建对话按钮
+document.getElementById('new-chat-icon').onclick = function() {
+    document.getElementById('new-chat').click();  // 触发左侧按钮的点击事件
 };
 
 // 添加侧边栏展开/折叠功能
