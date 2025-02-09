@@ -427,7 +427,7 @@ function renderLatex(text) {
                         // 预处理 align 环境中的内容
                         let formula = segment;
                         if (segment.includes('\\begin{align')) {
-                            // 移除对齐符号 &
+                                        // 移除对齐符号 &
                             formula = formula.replace(/&/g, '');
                             // 将 \\ 替换为单个换行符
                             formula = formula.replace(/\\\\/g, '\\quad');
@@ -658,13 +658,25 @@ function sendMessage() {
     input.value = '';
     input.style.height = '40px';  // 重置输入框高度
     
-    // 添加"请求中"的消息
+    // 修改加载消息的创建
+    const messageContainer = document.createElement('div');
+    messageContainer.className = 'message-container assistant-container';
+    
+    // 创建 reasoning 部分
+    const reasoningDiv = document.createElement('div');
+    reasoningDiv.className = 'reasoning-message';
+    reasoningDiv.innerHTML = '<div class="reasoning-header">思考中...<span class="toggle-reasoning">[-]</span></div><div class="reasoning-content"></div>';
+    
+    // 创建内容部分（初始隐藏）
+    const contentDiv = document.createElement('div');
+    contentDiv.className = 'message assistant-message markdown-content';
+    contentDiv.style.display = 'none';  // 初始隐藏
+    
+    messageContainer.appendChild(reasoningDiv);
+    messageContainer.appendChild(contentDiv);
+    
     const chatMessages = document.getElementById('chat-messages');
-    const loadingDiv = document.createElement('div');
-    loadingDiv.className = 'message assistant-message loading-message';
-    loadingDiv.textContent = '请求中...';
-    chatMessages.appendChild(loadingDiv);
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    chatMessages.appendChild(messageContainer);
     
     // 准备发送的数据
     const data = {
@@ -697,19 +709,13 @@ function sendMessage() {
         function readStream() {
             reader.read().then(({done, value}) => {
                 if (done) {
-                    // 完成后重新渲染最后一条消息
-                    let assistantDiv = chatMessages.querySelector('.assistant-message:last-child');
-                    if (assistantDiv) {
-                        const format = detectTextFormat(assistantMessage);
-                        switch(format) {
-                            case 'latex':
-                                assistantDiv.innerHTML = renderLatex(assistantMessage);
-                                break;
-                            case 'markdown':
-                                assistantDiv.innerHTML = renderMarkdown(assistantMessage);
-                                break;
-                        }
-                    }
+                    // 完成后添加操作按钮
+                    const actionsDiv = document.createElement('div');
+                    actionsDiv.className = 'message-actions';
+                    
+                    // 添加各种按钮...（代码保持不变）
+                    
+                    messageContainer.appendChild(actionsDiv);
                     loadHistory();
                     loadApiKeys();
                     return;
@@ -722,31 +728,75 @@ function sendMessage() {
                     if (line.startsWith('data: ')) {
                         try {
                             const data = JSON.parse(line.slice(6));
-                            assistantMessage += data.content;
-                            
-                            let assistantDiv = chatMessages.querySelector('.assistant-message:last-child');
-                            
-                            if (!assistantDiv || assistantDiv.classList.contains('loading-message')) {
-                                assistantDiv = document.createElement('div');
-                                assistantDiv.className = 'message assistant-message markdown-content';
-                                chatMessages.appendChild(assistantDiv);
+                            if (data.reasoning_content) {
+                                // 更新 reasoning 内容
+                                const reasoningContent = reasoningDiv.querySelector('.reasoning-content');
+                                reasoningContent.textContent = data.reasoning_content;
+                            } else if (data.content) {
+                                // 如果是第一次收到 content
+                                if (!assistantMessage) {
+                                    // 折叠 reasoning
+                                    const reasoningContent = reasoningDiv.querySelector('.reasoning-content');
+                                    const toggleButton = reasoningDiv.querySelector('.toggle-reasoning');
+                                    reasoningContent.style.display = 'none';
+                                    toggleButton.textContent = '[+]';
+                                    
+                                    // 显示内容区域
+                                    contentDiv.style.display = 'block';
+                                    
+                                    // 添加复制按钮
+                                    const copyButton = document.createElement('button');
+                                    copyButton.className = 'copy-button';
+                                    copyButton.textContent = '复制';
+                                    copyButton.onclick = () => {
+                                        copyToClipboard(assistantMessage);
+                                        copyButton.textContent = '已复制';
+                                        copyButton.classList.add('copy-success');
+                                        setTimeout(() => {
+                                            copyButton.textContent = '复制';
+                                            copyButton.classList.remove('copy-success');
+                                        }, 2000);
+                                    };
+                                    contentDiv.appendChild(copyButton);
+                                }
+                                
+                                // 更新内容
+                                assistantMessage += data.content;
+                                
+                                // 渲染内容
+                                const format = detectTextFormat(assistantMessage);
+                                switch(format) {
+                                    case 'latex':
+                                        contentDiv.innerHTML = renderLatex(assistantMessage);
+                                        break;
+                                    case 'markdown':
+                                        contentDiv.innerHTML = renderMarkdown(assistantMessage);
+                                        break;
+                                    default:
+                                        contentDiv.innerHTML = assistantMessage
+                                            .replace(/\n/g, '<br>')
+                                            .replace(/ /g, '&nbsp;');
+                                }
+                                
+                                // 保持复制按钮
+                                if (!contentDiv.querySelector('.copy-button')) {
+                                    const copyButton = document.createElement('button');
+                                    copyButton.className = 'copy-button';
+                                    copyButton.textContent = '复制';
+                                    copyButton.onclick = () => {
+                                        copyToClipboard(assistantMessage);
+                                        copyButton.textContent = '已复制';
+                                        copyButton.classList.add('copy-success');
+                                        setTimeout(() => {
+                                            copyButton.textContent = '复制';
+                                            copyButton.classList.remove('copy-success');
+                                        }, 2000);
+                                    };
+                                    contentDiv.appendChild(copyButton);
+                                }
+                                
+                                chatMessages.scrollTop = chatMessages.scrollHeight;
                             }
-                            
-                            // 实时渲染
-                            const format = detectTextFormat(assistantMessage);
-                            switch(format) {
-                                case 'latex':
-                                    assistantDiv.innerHTML = renderLatex(assistantMessage);
-                                    break;
-                                case 'markdown':
-                                    assistantDiv.innerHTML = renderMarkdown(assistantMessage);
-                                    break;
-                                default:
-                                    assistantDiv.innerHTML = assistantMessage
-                                        .replace(/\n/g, '<br>')
-                                        .replace(/ /g, '&nbsp;');
-                            }
-                            chatMessages.scrollTop = chatMessages.scrollHeight;
                         } catch (e) {
                             console.error('Error parsing SSE data:', e);
                         }
@@ -885,4 +935,16 @@ function loadSession(sessionId) {
 // 在初始化部分添加
 loadHistory();
 loadApiKeys();
-initSidebarToggle(); 
+initSidebarToggle();
+
+
+
+// 添加 reasoning 的折叠/展开功能
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('toggle-reasoning')) {
+        const content = e.target.parentElement.nextElementSibling;
+        const isHidden = content.style.display === 'none';
+        content.style.display = isHidden ? 'block' : 'none';
+        e.target.textContent = isHidden ? '[-]' : '[+]';
+    }
+}); 

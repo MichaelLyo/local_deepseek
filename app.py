@@ -154,6 +154,7 @@ def chat():
                     return
                 
                 assistant_message = {'role': 'assistant', 'content': ''}
+                current_reasoning = ''
                 
                 for line in response.iter_lines():
                     if line:
@@ -164,7 +165,16 @@ def chat():
                             if line_text.startswith('data: '):
                                 json_response = json.loads(line_text.replace('data: ', ''))
                                 if json_response.get('choices'):
-                                    content = json_response['choices'][0]['delta'].get('content', '')
+                                    delta = json_response['choices'][0]['delta']
+                                    
+                                    # 处理 reasoning_content
+                                    reasoning_content = delta.get('reasoning_content', '')
+                                    if reasoning_content:
+                                        current_reasoning += reasoning_content
+                                        yield f"data: {json.dumps({'reasoning_content': current_reasoning})}\n\n"
+                                    
+                                    # 处理正常的 content
+                                    content = delta.get('content', '')
                                     if content:
                                         assistant_message['content'] += content
                                         yield f"data: {json.dumps({'content': content})}\n\n"

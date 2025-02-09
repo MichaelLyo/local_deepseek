@@ -74,6 +74,27 @@ body {
 
 .history-list {
     overflow-y: auto;
+    max-height: calc(100vh - 100px); /* 减去新建对话按钮的高度和一些边距 */
+    scrollbar-width: thin;  /* Firefox */
+    scrollbar-color: #888 #f5f5f5;  /* Firefox */
+}
+
+/* Webkit (Chrome/Safari/Edge) 滚动条样式 */
+.history-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.history-list::-webkit-scrollbar-track {
+    background: #f5f5f5;
+}
+
+.history-list::-webkit-scrollbar-thumb {
+    background-color: #888;
+    border-radius: 3px;
+}
+
+.history-list::-webkit-scrollbar-thumb:hover {
+    background-color: #666;
 }
 
 .history-item {
@@ -147,6 +168,8 @@ body {
     max-width: 85%;
     margin-left: 20px;
     margin-right: 20px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .message-container.user-container {
@@ -158,6 +181,8 @@ body {
     border-radius: 10px;
     margin-bottom: 5px;
     white-space: pre-wrap;
+    word-wrap: break-word;
+    max-width: 100%;
 }
 
 .user-message {
@@ -200,15 +225,16 @@ body {
 }
 
 .markdown-content {
-    overflow-x: auto;
-    white-space: normal;  /* 避免出现多余的空格 */
-    overflow-wrap: break-word; /* 长单词换行 */
+    overflow-x: hidden;
+    white-space: normal;
+    overflow-wrap: break-word;
+    width: 100%;
 }
 
 .markdown-content pre {
-    background-color: #f8f9fa;
-    padding: 2px;
-    border-radius: 5px;
+    overflow-x: auto;
+    max-width: 100%;
+    white-space: pre;
 }
 
 .markdown-content code {
@@ -426,4 +452,33 @@ li::marker { content: "• "; color: #666; } */
 .header-icon:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+.reasoning-container {
+    opacity: 0.8;
+}
+
+.reasoning-message {
+    background-color: #f8f9fa;
+    font-size: 0.9em;
+}
+
+.reasoning-header {
+    font-weight: bold;
+    margin-bottom: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.toggle-reasoning {
+    cursor: pointer;
+    color: #666;
+    user-select: none;
+}
+
+.reasoning-content {
+    margin-top: 5px;
+    padding-left: 10px;
+    border-left: 2px solid #ddd;
 }

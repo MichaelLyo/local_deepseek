@@ -1,8 +1,8 @@
-# AI Chat Web Interface
+# deepseek-R1 本地网页对话
 
-一个基于 Flask 的 deepseek 聊天界面，支持 Markdown 和 LaTeX 渲染。
-
-deepseek官网实在太太太卡了……
+一个基于 Flask 和 云API 的 deepseek-r1 聊天界面，支持 Markdown 和 LaTeX 渲染。
+<!-- ![Interface 1](static/imgs/interface.png) -->
+deepseek官网实在太太太卡了…
 
 ## 功能特点
 
