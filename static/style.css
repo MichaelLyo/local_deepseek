@@ -482,3 +482,28 @@ li::marker { content: "• "; color: #666; } */
     padding-left: 10px;
     border-left: 2px solid #ddd;
 }
+
+.select-container {
+    display: flex;
+    gap: 10px;
+    margin-right: 10px;
+    flex-direction: column;  /* Change to column to stack them vertically */
+}
+.select-container select {
+    width: 100%;  /* Ensure both selects take up 100% of the available width */
+}
+.provider-select,
+.api-key-select {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: white;
+    min-width: 100px;
+}
+
+.provider-select:focus,
+.api-key-select:focus {
+    outline: none;
+    border-color: #007bff;
+}

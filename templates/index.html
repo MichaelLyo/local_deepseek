@@ -45,9 +45,14 @@
             </div>
             <div id="chat-messages" class="chat-messages"></div>
             <div class="input-container">
-                <select id="api-key-select" class="api-key-select">
-                    <!-- 选项将通过 JavaScript 动态添加 -->
-                </select>
+                <div class="select-container">
+                    <select id="provider-select" class="provider-select">
+                        <!-- 选项将通过 JavaScript 动态添加 -->
+                    </select>
+                    <select id="api-key-select" class="api-key-select">
+                        <!-- 选项将通过 JavaScript 动态添加 -->
+                    </select>
+                </div>
                 <textarea id="user-input" placeholder="输入消息..." rows="1"></textarea>
                 <button id="send-button">发送</button>
             </div>

@@ -38,6 +38,7 @@ ENV/
 chat_history.json
 config.json
 chat_backup.json
+data.json
 .env
 
 

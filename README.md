@@ -17,6 +17,8 @@ deepseek官网实在太太太卡了…
 
 可以申请 [潞晨云](https://cloud.luchentech.com/account/signup?invitation_code=invite_gkxi7yamJEauvSyEjZH2ZJ) 的API key。
 
+登录进去选择模型市场，再创建API key即可。
+
 我的邀请码： invite_gkxi7yamJEauvSyEjZH2ZJ
 
 目前还是免费的。

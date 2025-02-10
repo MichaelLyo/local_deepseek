@@ -19,17 +19,39 @@ def load_config():
     except FileNotFoundError:
         # 如果配置文件不存在，返回默认配置
         return {
-            "api_keys": {
-                "key1": {
-                    "name": "DeepSeek-1",
-                    "key": ""
+            "providers": {
+                "luchen": {
+                    "name": "潞晨云",
+                    "url": "https://cloud.luchentech.com/api/maas/chat/completions",
+                    "model_name": "deepseek_r1",
+                    "api_keys": {
+                        "key1": {
+                            "name": "DeepSeek-1",
+                            "key": "85ca423b-ee12-4bc7-b6d5-81a3fc4d8f1e"
+                        },
+                        "key2": {
+                            "name": "DeepSeek-2",
+                            "key": "e8c7797d-7049-4956-9dd9-bbea9758db43"
+                        }
+                    }
+                },
+                "other_provider": {
+                    "name": "其他服务商",
+                    "url": "https://api.other-provider.com/v1/chat/completions",
+                    "model_name": "other-model",
+                    "api_keys": {
+                        "key1": {
+                            "name": "API-1",
+                            "key": "your-api-key-1"
+                        }
+                    }
                 }
             }
         }
 
 # 获取配置
 config = load_config()
-API_KEYS = config['api_keys']
+API_KEYS = config['providers']['luchen']['api_keys']
 
 # 存储对话历史的文件路径
 HISTORY_FILE = 'chat_history.json'
@@ -62,36 +84,35 @@ def clean_markdown(text):
     cleaned_text = "\n".join([line.strip() for line in text.splitlines() if line.strip()])
     return cleaned_text
 
-def send_message_to_chat(messages, api_key='key1', stream=True):
+def send_message_to_chat(messages, api_key='key1', provider='luchen', stream=True):
     try:
-        url = 'https://cloud.luchentech.com/api/maas/chat/completions'
+        config = load_config()
+        provider_config = config['providers'][provider]
+        url = provider_config['url']
+        model_name = provider_config['model_name']
+        api_key_value = provider_config['api_keys'][api_key]['key']
+        
         headers = {
             'Content-Type': 'application/json',
-            'Authorization': f'Bearer {API_KEYS[api_key]["key"]}'
+            'Authorization': f'Bearer {api_key_value}'
         }
         
         payload = {
-            "model": "deepseek_r1",
+            "model": model_name,
             "messages": messages[-3:],
             "stream": stream,
-            "max_tokens": 100000
+            "max_tokens": 8000
         }
 
-        print(f"Sending request with payload: {json.dumps(payload, ensure_ascii=False)}")
+        print(f"Sending request to {url} with payload: {json.dumps(payload, ensure_ascii=False)}")
         print(f"Using headers: {headers}")
         
-        response = requests.post(url, json=payload, headers=headers, stream=stream)
-        print(f"Response status: {response.status_code}")
-        
-        if response.status_code != 200:
-            error_data = response.json()
-            error_message = error_data.get('error', {}).get('message', '未知错误')
-            raise Exception(f"API请求失败: {error_message}")
+        response = requests.post(url, headers=headers, json=payload, stream=stream)
         return response
-    except requests.exceptions.RequestException as e:
-        raise Exception(f"网络请求错误: {str(e)}")
+        
     except Exception as e:
-        raise Exception(f"发送消息时出错: {str(e)}")
+        print(f"Error in send_message_to_chat: {e}")
+        raise e
 
 @app.route('/')
 def home():
@@ -106,13 +127,28 @@ def get_api_keys():
         if info['key']  # 只返回有效的 API key
     })
 
+@app.route('/api/providers', methods=['GET'])
+def get_providers():
+    config = load_config()
+    providers = {}
+    for provider_id, provider_data in config['providers'].items():
+        providers[provider_id] = {
+            'name': provider_data['name'],
+            'api_keys': {
+                key_id: key_data['name'] 
+                for key_id, key_data in provider_data['api_keys'].items()
+            }
+        }
+    return jsonify(providers)
+
 @app.route('/api/chat', methods=['POST'])
 def chat():
     try:
         data = request.json
-        session_id = data.get('session_id')
         message = data.get('message')
-        api_key = data.get('api_key', 'key1')
+        session_id = data.get('session_id')
+        api_key = data.get('api_key')
+        provider = data.get('provider', 'luchen')  # 默认使用潞晨云
         
         print(f"\nNew chat request:")
         print(f"Session ID: {session_id}")
@@ -146,6 +182,7 @@ def chat():
                 response = send_message_to_chat(
                     chat_history[session_id]['messages'],
                     api_key=api_key,
+                    provider=provider,
                     stream=True
                 )
                 
@@ -253,12 +290,12 @@ def undo_last_message():
             return jsonify({'error': 'Session not found'}), 404
             
         # 确保至少有一组对话可以撤销
-        if len(chat_history[session_id]['messages']) < 2:
+        if len(chat_history[session_id]['messages']) < 1:
             return jsonify({'error': 'No messages to undo'}), 400
             
         # 移除最后一组对话（用户消息和助手回复）
         user_message = chat_history[session_id]['messages'].pop()
-        assistant_message = chat_history[session_id]['messages'].pop()
+        # assistant_message = chat_history[session_id]['messages'].pop()
         
         # 保存到备份文件
         if session_id not in backup_history:
@@ -268,7 +305,7 @@ def undo_last_message():
                 'messages': []
             }
         
-        backup_history[session_id]['messages'].extend([assistant_message, user_message])
+        backup_history[session_id]['messages'].extend([ user_message])
         
         save_chat_history(chat_history)
         save_backup_history(backup_history)

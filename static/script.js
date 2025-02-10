@@ -629,28 +629,53 @@ function appendMessage(content, role) {
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
 
-// 加载 API keys
-function loadApiKeys() {
-    fetch('/api/keys')
+// 加载服务商和API keys
+function loadProviders() {
+    fetch('/api/providers')
         .then(response => response.json())
-        .then(keys => {
-            const select = document.getElementById('api-key-select');
-            select.innerHTML = '';
+        .then(providers => {
+            const providerSelect = document.getElementById('provider-select');
+            providerSelect.innerHTML = '';
             
-            Object.entries(keys).forEach(([key, info]) => {
+            Object.entries(providers).forEach(([providerId, provider]) => {
                 const option = document.createElement('option');
-                option.value = key;
-                option.textContent = info.name;
-                select.appendChild(option);
+                option.value = providerId;
+                option.textContent = provider.name;
+                providerSelect.appendChild(option);
             });
+            
+            // 初始加载第一个服务商的API keys
+            updateApiKeys(providers[Object.keys(providers)[0]].api_keys);
         });
 }
+
+// 更新API keys下拉框
+function updateApiKeys(apiKeys) {
+    const apiKeySelect = document.getElementById('api-key-select');
+    apiKeySelect.innerHTML = '';
+    
+    Object.entries(apiKeys).forEach(([keyId, keyName]) => {
+        const option = document.createElement('option');
+        option.value = keyId;
+        option.textContent = keyName;
+        apiKeySelect.appendChild(option);
+    });
+}
+
+// 添加服务商切换事件
+document.getElementById('provider-select').onchange = function() {
+    fetch('/api/providers')
+        .then(response => response.json())
+        .then(providers => {
+            const selectedProvider = this.value;
+            updateApiKeys(providers[selectedProvider].api_keys);
+        });
+};
 
 // 修改发送消息函数
 function sendMessage() {
     const input = document.getElementById('user-input');
     const message = input.value.trim();
-    const apiKey = document.getElementById('api-key-select').value;
     
     if (!message) return;
     
@@ -682,7 +707,8 @@ function sendMessage() {
     const data = {
         message: message,
         session_id: currentSessionId,
-        api_key: apiKey
+        api_key: document.getElementById('api-key-select').value,
+        provider: document.getElementById('provider-select').value
     };
     
     // 使用 fetch POST 请求
@@ -717,7 +743,7 @@ function sendMessage() {
                     
                     messageContainer.appendChild(actionsDiv);
                     loadHistory();
-                    loadApiKeys();
+                    loadProviders();
                     return;
                 }
                 
@@ -934,7 +960,7 @@ function loadSession(sessionId) {
 
 // 在初始化部分添加
 loadHistory();
-loadApiKeys();
+loadProviders();
 initSidebarToggle();
 
 
